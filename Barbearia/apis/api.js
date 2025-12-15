@@ -1706,6 +1706,1324 @@ app.post('/api/webhook/teste', authMiddleware, checkPermission('admin'), async (
 });
 
 // ============================================
+// 📂 ROTAS PARA UNIDADES
+// ============================================
+// As unidades representam os endereços físicos da barbearia. Estas
+// rotas permitem criar, listar, atualizar e inativar unidades. Somente
+// usuários com permissão de admin ou gerente podem criar, editar ou
+// excluir unidades.
+
+// Criar unidade
+app.post('/api/unidades', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, endereco, telefone } = req.body;
+  if (!nome) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nome é obrigatório'
+    });
+  }
+  db.run(
+    'INSERT INTO unidades (nome, endereco, telefone) VALUES (?, ?, ?)',
+    [nome, endereco, telefone],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao criar unidade: ' + err.message
+        });
+      }
+      res.status(201).json({
+        sucesso: true,
+        mensagem: 'Unidade criada com sucesso',
+        dados: { id: this.lastID }
+      });
+    }
+  );
+});
+
+// Listar unidades (com filtros de ativo)
+app.get('/api/unidades', authMiddleware, (req, res) => {
+  const { ativo } = req.query;
+  let query = 'SELECT * FROM unidades WHERE 1=1';
+  const params = [];
+  if (ativo !== undefined) {
+    query += ' AND ativo = ?';
+    params.push(ativo === 'true' || ativo === '1' ? 1 : 0);
+  }
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar unidades'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter unidade por ID
+app.get('/api/unidades/:id', authMiddleware, (req, res) => {
+  db.get(
+    'SELECT * FROM unidades WHERE id = ?',
+    [req.params.id],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao obter unidade'
+        });
+      }
+      if (!row) {
+        return res.status(404).json({
+          sucesso: false,
+          erro: 'Unidade não encontrada'
+        });
+      }
+      res.json({
+        sucesso: true,
+        dados: row
+      });
+    }
+  );
+});
+
+// Atualizar unidade
+app.put('/api/unidades/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, endereco, telefone, ativo } = req.body;
+  // Monta consulta dinamicamente conforme campos fornecidos
+  let query = 'UPDATE unidades SET ';
+  const updates = [];
+  const params = [];
+  if (nome !== undefined) {
+    updates.push('nome = ?');
+    params.push(nome);
+  }
+  if (endereco !== undefined) {
+    updates.push('endereco = ?');
+    params.push(endereco);
+  }
+  if (telefone !== undefined) {
+    updates.push('telefone = ?');
+    params.push(telefone);
+  }
+  if (ativo !== undefined) {
+    updates.push('ativo = ?');
+    params.push(ativo ? 1 : 0);
+  }
+  if (updates.length === 0) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nenhum campo para atualizar'
+    });
+  }
+  query += updates.join(', ') + ' WHERE id = ?';
+  params.push(req.params.id);
+  db.run(query, params, function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao atualizar unidade: ' + err.message
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Unidade não encontrada'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Unidade atualizada com sucesso'
+    });
+  });
+});
+
+// Inativar (deletar) unidade
+app.delete('/api/unidades/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.run(
+    'UPDATE unidades SET ativo = 0 WHERE id = ?',
+    [req.params.id],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao inativar unidade'
+        });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          erro: 'Unidade não encontrada'
+        });
+      }
+      res.json({
+        sucesso: true,
+        mensagem: 'Unidade inativada com sucesso'
+      });
+    }
+  );
+});
+
+// ============================================
+// 🛠️ ROTAS PARA CATEGORIAS DE SERVIÇOS
+// ============================================
+// Categorias ajudam a organizar os serviços oferecidos. As rotas
+// permitem cadastrar, listar, atualizar e excluir categorias. Apenas
+// administradores ou gerentes podem modificar as categorias.
+
+// Criar categoria
+app.post('/api/categorias-servicos', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, descricao } = req.body;
+  if (!nome) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nome é obrigatório'
+    });
+  }
+  db.run(
+    'INSERT INTO categorias_servicos (nome, descricao) VALUES (?, ?)',
+    [nome, descricao],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao criar categoria: ' + err.message
+        });
+      }
+      res.status(201).json({
+        sucesso: true,
+        mensagem: 'Categoria criada com sucesso',
+        dados: { id: this.lastID }
+      });
+    }
+  );
+});
+
+// Listar categorias
+app.get('/api/categorias-servicos', authMiddleware, (req, res) => {
+  db.all('SELECT * FROM categorias_servicos', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar categorias'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter categoria por ID
+app.get('/api/categorias-servicos/:id', authMiddleware, (req, res) => {
+  db.get('SELECT * FROM categorias_servicos WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao obter categoria'
+      });
+    }
+    if (!row) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Categoria não encontrada'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: row
+    });
+  });
+});
+
+// Atualizar categoria
+app.put('/api/categorias-servicos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, descricao } = req.body;
+  if (!nome && !descricao) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nenhum campo para atualizar'
+    });
+  }
+  let query = 'UPDATE categorias_servicos SET ';
+  const updates = [];
+  const params = [];
+  if (nome !== undefined) {
+    updates.push('nome = ?');
+    params.push(nome);
+  }
+  if (descricao !== undefined) {
+    updates.push('descricao = ?');
+    params.push(descricao);
+  }
+  query += updates.join(', ') + ' WHERE id = ?';
+  params.push(req.params.id);
+  db.run(query, params, function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao atualizar categoria'
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Categoria não encontrada'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Categoria atualizada com sucesso'
+    });
+  });
+});
+
+// Deletar categoria
+app.delete('/api/categorias-servicos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.run('DELETE FROM categorias_servicos WHERE id = ?', [req.params.id], function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao excluir categoria'
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Categoria não encontrada'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Categoria excluída com sucesso'
+    });
+  });
+});
+
+// ============================================
+// ✂️ ROTAS PARA SERVIÇOS
+// ============================================
+// Os serviços representam os cortes, barbas ou qualquer outro serviço
+// oferecido pela barbearia. Cada serviço pertence a uma unidade e
+// opcionalmente a uma categoria. Estas rotas permitem gerenciar
+// serviços com suporte a criação, listagem, atualização e exclusão.
+
+// Criar serviço
+app.post('/api/servicos', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, descricao, preco, duracao_minutos, categoria_id, unidade_id, ativo } = req.body;
+  if (!nome || preco === undefined || duracao_minutos === undefined || !unidade_id) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nome, preço, duração e unidade_id são obrigatórios'
+    });
+  }
+  db.run(
+    'INSERT INTO servicos (nome, descricao, preco, duracao_minutos, categoria_id, unidade_id, ativo) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [nome, descricao, preco, duracao_minutos, categoria_id || null, unidade_id, ativo !== undefined ? (ativo ? 1 : 0) : 1],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao criar serviço: ' + err.message
+        });
+      }
+      res.status(201).json({
+        sucesso: true,
+        mensagem: 'Serviço criado com sucesso',
+        dados: { id: this.lastID }
+      });
+    }
+  );
+});
+
+// Listar serviços com filtros
+app.get('/api/servicos', authMiddleware, (req, res) => {
+  const { unidade_id, categoria_id, ativo } = req.query;
+  let query = `SELECT s.*, c.nome as categoria_nome FROM servicos s LEFT JOIN categorias_servicos c ON s.categoria_id = c.id WHERE 1=1`;
+  const params = [];
+  if (unidade_id) {
+    query += ' AND s.unidade_id = ?';
+    params.push(unidade_id);
+  }
+  if (categoria_id) {
+    query += ' AND s.categoria_id = ?';
+    params.push(categoria_id);
+  }
+  if (ativo !== undefined) {
+    query += ' AND s.ativo = ?';
+    params.push(ativo === 'true' || ativo === '1' ? 1 : 0);
+  }
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar serviços'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter serviço por ID
+app.get('/api/servicos/:id', authMiddleware, (req, res) => {
+  db.get(
+    `SELECT s.*, c.nome as categoria_nome FROM servicos s LEFT JOIN categorias_servicos c ON s.categoria_id = c.id WHERE s.id = ?`,
+    [req.params.id],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao obter serviço'
+        });
+      }
+      if (!row) {
+        return res.status(404).json({
+          sucesso: false,
+          erro: 'Serviço não encontrado'
+        });
+      }
+      res.json({
+        sucesso: true,
+        dados: row
+      });
+    }
+  );
+});
+
+// Atualizar serviço
+app.put('/api/servicos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, descricao, preco, duracao_minutos, categoria_id, unidade_id, ativo } = req.body;
+  let query = 'UPDATE servicos SET ';
+  const updates = [];
+  const params = [];
+  if (nome !== undefined) {
+    updates.push('nome = ?');
+    params.push(nome);
+  }
+  if (descricao !== undefined) {
+    updates.push('descricao = ?');
+    params.push(descricao);
+  }
+  if (preco !== undefined) {
+    updates.push('preco = ?');
+    params.push(preco);
+  }
+  if (duracao_minutos !== undefined) {
+    updates.push('duracao_minutos = ?');
+    params.push(duracao_minutos);
+  }
+  if (categoria_id !== undefined) {
+    updates.push('categoria_id = ?');
+    params.push(categoria_id || null);
+  }
+  if (unidade_id !== undefined) {
+    updates.push('unidade_id = ?');
+    params.push(unidade_id);
+  }
+  if (ativo !== undefined) {
+    updates.push('ativo = ?');
+    params.push(ativo ? 1 : 0);
+  }
+  if (updates.length === 0) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nenhum campo para atualizar'
+    });
+  }
+  query += updates.join(', ') + ' WHERE id = ?';
+  params.push(req.params.id);
+  db.run(query, params, function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao atualizar serviço'
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Serviço não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Serviço atualizado com sucesso'
+    });
+  });
+});
+
+// Inativar serviço
+app.delete('/api/servicos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.run('UPDATE servicos SET ativo = 0 WHERE id = ?', [req.params.id], function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao inativar serviço'
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Serviço não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Serviço inativado com sucesso'
+    });
+  });
+});
+
+// ============================================
+// 🛍️ ROTAS PARA PRODUTOS
+// ============================================
+// Produtos são itens comercializados na barbearia (por exemplo
+// pomadas, shampoos). As rotas abaixo permitem cadastrar, listar,
+// atualizar e inativar produtos, bem como ajustar o estoque.
+
+// Criar produto
+app.post('/api/produtos', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, descricao, preco, estoque, unidade_id, ativo } = req.body;
+  if (!nome || preco === undefined || !unidade_id) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nome, preço e unidade_id são obrigatórios'
+    });
+  }
+  db.run(
+    'INSERT INTO produtos (nome, descricao, preco, estoque, unidade_id, ativo) VALUES (?, ?, ?, ?, ?, ?)',
+    [nome, descricao, preco, estoque || 0, unidade_id, ativo !== undefined ? (ativo ? 1 : 0) : 1],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao criar produto: ' + err.message
+        });
+      }
+      res.status(201).json({
+        sucesso: true,
+        mensagem: 'Produto criado com sucesso',
+        dados: { id: this.lastID }
+      });
+    }
+  );
+});
+
+// Listar produtos com filtros
+app.get('/api/produtos', authMiddleware, (req, res) => {
+  const { unidade_id, ativo } = req.query;
+  let query = 'SELECT * FROM produtos WHERE 1=1';
+  const params = [];
+  if (unidade_id) {
+    query += ' AND unidade_id = ?';
+    params.push(unidade_id);
+  }
+  if (ativo !== undefined) {
+    query += ' AND ativo = ?';
+    params.push(ativo === 'true' || ativo === '1' ? 1 : 0);
+  }
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar produtos'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter produto por ID
+app.get('/api/produtos/:id', authMiddleware, (req, res) => {
+  db.get('SELECT * FROM produtos WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao obter produto'
+      });
+    }
+    if (!row) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Produto não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: row
+    });
+  });
+});
+
+// Atualizar produto
+app.put('/api/produtos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, descricao, preco, estoque, unidade_id, ativo } = req.body;
+  let query = 'UPDATE produtos SET ';
+  const updates = [];
+  const params = [];
+  if (nome !== undefined) {
+    updates.push('nome = ?');
+    params.push(nome);
+  }
+  if (descricao !== undefined) {
+    updates.push('descricao = ?');
+    params.push(descricao);
+  }
+  if (preco !== undefined) {
+    updates.push('preco = ?');
+    params.push(preco);
+  }
+  if (estoque !== undefined) {
+    updates.push('estoque = ?');
+    params.push(estoque);
+  }
+  if (unidade_id !== undefined) {
+    updates.push('unidade_id = ?');
+    params.push(unidade_id);
+  }
+  if (ativo !== undefined) {
+    updates.push('ativo = ?');
+    params.push(ativo ? 1 : 0);
+  }
+  if (updates.length === 0) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nenhum campo para atualizar'
+    });
+  }
+  query += updates.join(', ') + ' WHERE id = ?';
+  params.push(req.params.id);
+  db.run(query, params, function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao atualizar produto'
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Produto não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Produto atualizado com sucesso'
+    });
+  });
+});
+
+// Inativar produto
+app.delete('/api/produtos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.run('UPDATE produtos SET ativo = 0 WHERE id = ?', [req.params.id], function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao inativar produto'
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Produto não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Produto inativado com sucesso'
+    });
+  });
+});
+
+// Ajustar estoque de produto (adicionar ou remover quantidade)
+app.post('/api/produtos/:id/ajustar-estoque', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { quantidade } = req.body;
+  if (quantidade === undefined || isNaN(quantidade)) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Quantidade é obrigatória e deve ser numérica'
+    });
+  }
+  db.get('SELECT estoque FROM produtos WHERE id = ?', [req.params.id], (err, produto) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao buscar produto'
+      });
+    }
+    if (!produto) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Produto não encontrado'
+      });
+    }
+    const novoEstoque = (produto.estoque || 0) + parseInt(quantidade);
+    db.run('UPDATE produtos SET estoque = ? WHERE id = ?', [novoEstoque, req.params.id], function(updateErr) {
+      if (updateErr) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao ajustar estoque'
+        });
+      }
+      res.json({
+        sucesso: true,
+        mensagem: 'Estoque ajustado com sucesso',
+        dados: { estoque: novoEstoque }
+      });
+    });
+  });
+});
+
+// ============================================
+// 💸 ROTAS PARA PAGAMENTOS
+// ============================================
+// Permitem criar e atualizar registros de pagamento. Normalmente, os
+// pagamentos são vinculados a agendamentos ou vendas. Os admins ou
+// gerentes podem alterar o status ou detalhes do pagamento.
+
+// Criar pagamento
+app.post('/api/pagamentos', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { agendamento_id, venda_id, forma_pagamento, valor, status_pagamento, codigo_transacao, data_pagamento } = req.body;
+  if (!valor) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Valor é obrigatório'
+    });
+  }
+  db.run(
+    `INSERT INTO pagamentos (agendamento_id, venda_id, forma_pagamento, valor, status_pagamento, codigo_transacao, data_pagamento)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [agendamento_id || null, venda_id || null, forma_pagamento, valor, status_pagamento || 'pendente', codigo_transacao, data_pagamento],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao criar pagamento: ' + err.message
+        });
+      }
+      res.status(201).json({
+        sucesso: true,
+        mensagem: 'Pagamento criado com sucesso',
+        dados: { id: this.lastID }
+      });
+    }
+  );
+});
+
+// Listar pagamentos
+app.get('/api/pagamentos', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { status_pagamento, data_inicio, data_fim } = req.query;
+  let query = 'SELECT * FROM pagamentos WHERE 1=1';
+  const params = [];
+  if (status_pagamento) {
+    query += ' AND status_pagamento = ?';
+    params.push(status_pagamento);
+  }
+  if (data_inicio && data_fim) {
+    query += ' AND date(data_pagamento) BETWEEN date(?) AND date(?)';
+    params.push(data_inicio, data_fim);
+  }
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar pagamentos'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter pagamento por ID
+app.get('/api/pagamentos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.get('SELECT * FROM pagamentos WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao obter pagamento'
+      });
+    }
+    if (!row) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Pagamento não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: row
+    });
+  });
+});
+
+// Atualizar pagamento (status ou outros dados)
+app.put('/api/pagamentos/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { status_pagamento, codigo_transacao, data_pagamento, forma_pagamento, valor } = req.body;
+  let query = 'UPDATE pagamentos SET ';
+  const updates = [];
+  const params = [];
+  if (status_pagamento !== undefined) {
+    updates.push('status_pagamento = ?');
+    params.push(status_pagamento);
+  }
+  if (codigo_transacao !== undefined) {
+    updates.push('codigo_transacao = ?');
+    params.push(codigo_transacao);
+  }
+  if (data_pagamento !== undefined) {
+    updates.push('data_pagamento = ?');
+    params.push(data_pagamento);
+  }
+  if (forma_pagamento !== undefined) {
+    updates.push('forma_pagamento = ?');
+    params.push(forma_pagamento);
+  }
+  if (valor !== undefined) {
+    updates.push('valor = ?');
+    params.push(valor);
+  }
+  if (updates.length === 0) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Nenhum campo para atualizar'
+    });
+  }
+  query += updates.join(', ') + ' WHERE id = ?';
+  params.push(req.params.id);
+  db.run(query, params, function(err) {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao atualizar pagamento'
+      });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Pagamento não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      mensagem: 'Pagamento atualizado com sucesso'
+    });
+  });
+});
+
+// ============================================
+// 🧾 ROTAS DE VENDAS E ITENS DE VENDA
+// ============================================
+// Abaixo são definidas as rotas para registrar vendas e seus itens. Uma
+// venda pode incluir produtos e/ou serviços. Ao criar uma venda é
+// necessário fornecer os itens através do corpo da requisição. A rota
+// também permite listar vendas e obter detalhes de uma venda
+// específica, incluindo seus itens.
+
+// Criar venda
+app.post('/api/vendas', authMiddleware, (req, res) => {
+  const { cliente_id, unidade_id, itens, forma_pagamento } = req.body;
+  // itens deve ser um array de objetos { produto_id?, servico_id?, quantidade }
+  if (!unidade_id || !itens || !Array.isArray(itens) || itens.length === 0) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'unidade_id e itens são obrigatórios'
+    });
+  }
+  // Calcula total e prepara dados para inserção
+  const calcularTotal = async () => {
+    let total = 0;
+    for (const item of itens) {
+      if (item.produto_id) {
+        const produto = await new Promise((resolve, reject) => {
+          db.get('SELECT preco, estoque FROM produtos WHERE id = ? AND ativo = 1', [item.produto_id], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+        if (!produto) {
+          throw new Error(`Produto ID ${item.produto_id} não encontrado`);
+        }
+        if (produto.estoque < item.quantidade) {
+          throw new Error(`Estoque insuficiente para o produto ID ${item.produto_id}`);
+        }
+        total += produto.preco * item.quantidade;
+      } else if (item.servico_id) {
+        const servico = await new Promise((resolve, reject) => {
+          db.get('SELECT preco FROM servicos WHERE id = ? AND ativo = 1', [item.servico_id], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+        if (!servico) {
+          throw new Error(`Serviço ID ${item.servico_id} não encontrado`);
+        }
+        total += servico.preco * item.quantidade;
+      } else {
+        throw new Error('Item deve possuir produto_id ou servico_id');
+      }
+    }
+    return total;
+  };
+  calcularTotal().then((total) => {
+    // Inserir venda
+    db.run(
+      'INSERT INTO vendas (cliente_id, unidade_id, total) VALUES (?, ?, ?)',
+      [cliente_id || null, unidade_id, total],
+      function(err) {
+        if (err) {
+          return res.status(500).json({
+            sucesso: false,
+            erro: 'Erro ao criar venda: ' + err.message
+          });
+        }
+        const vendaId = this.lastID;
+        // Inserir itens
+        const inserirItens = () => {
+          return new Promise((resolve, reject) => {
+            const stmt = db.prepare('INSERT INTO venda_itens (venda_id, produto_id, servico_id, quantidade, valor_unitario) VALUES (?, ?, ?, ?, ?)');
+            let processed = 0;
+            itens.forEach(async (item) => {
+              try {
+                let valorUnitario;
+                if (item.produto_id) {
+                  const produto = await new Promise((resolve2, reject2) => {
+                    db.get('SELECT preco, estoque FROM produtos WHERE id = ?', [item.produto_id], (err2, row2) => {
+                      if (err2) reject2(err2);
+                      else resolve2(row2);
+                    });
+                  });
+                  valorUnitario = produto.preco;
+                  // atualizar estoque do produto
+                  db.run('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [item.quantidade, item.produto_id]);
+                } else {
+                  const servico = await new Promise((resolve2, reject2) => {
+                    db.get('SELECT preco FROM servicos WHERE id = ?', [item.servico_id], (err2, row2) => {
+                      if (err2) reject2(err2);
+                      else resolve2(row2);
+                    });
+                  });
+                  valorUnitario = servico.preco;
+                }
+                stmt.run(vendaId, item.produto_id || null, item.servico_id || null, item.quantidade, valorUnitario, (err3) => {
+                  if (err3) {
+                    reject(err3);
+                  } else {
+                    processed++;
+                    if (processed === itens.length) {
+                      stmt.finalize();
+                      resolve();
+                    }
+                  }
+                });
+              } catch (erroItem) {
+                reject(erroItem);
+              }
+            });
+          });
+        };
+        inserirItens().then(() => {
+          // Se houver forma de pagamento, criar registro de pagamento associado
+          if (forma_pagamento) {
+            db.run(
+              'INSERT INTO pagamentos (venda_id, forma_pagamento, valor, status_pagamento) VALUES (?, ?, ?, ?)',
+              [vendaId, forma_pagamento, total, 'pago'],
+              function(errPag) {
+                if (errPag) {
+                  return res.status(500).json({
+                    sucesso: false,
+                    erro: 'Erro ao registrar pagamento da venda: ' + errPag.message
+                  });
+                }
+                const pagamentoId = this.lastID;
+                db.run(
+                  'UPDATE vendas SET pagamento_id = ? WHERE id = ?',
+                  [pagamentoId, vendaId],
+                  () => {
+                    res.status(201).json({
+                      sucesso: true,
+                      mensagem: 'Venda criada com sucesso',
+                      dados: { id: vendaId, total }
+                    });
+                  }
+                );
+              }
+            );
+          } else {
+            res.status(201).json({
+              sucesso: true,
+              mensagem: 'Venda criada com sucesso',
+              dados: { id: vendaId, total }
+            });
+          }
+        }).catch((erroItens) => {
+          res.status(400).json({
+            sucesso: false,
+            erro: erroItens.message
+          });
+        });
+      }
+    );
+  }).catch((erroCalc) => {
+    res.status(400).json({
+      sucesso: false,
+      erro: erroCalc.message
+    });
+  });
+});
+
+// Listar vendas
+app.get('/api/vendas', authMiddleware, (req, res) => {
+  const { data_inicio, data_fim, cliente_id, unidade_id } = req.query;
+  let query = 'SELECT * FROM vendas WHERE 1=1';
+  const params = [];
+  if (data_inicio && data_fim) {
+    query += ' AND date(criado_em) BETWEEN date(?) AND date(?)';
+    params.push(data_inicio, data_fim);
+  }
+  if (cliente_id) {
+    query += ' AND cliente_id = ?';
+    params.push(cliente_id);
+  }
+  if (unidade_id) {
+    query += ' AND unidade_id = ?';
+    params.push(unidade_id);
+  }
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar vendas'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter detalhes da venda, incluindo itens
+app.get('/api/vendas/:id', authMiddleware, (req, res) => {
+  const vendaId = req.params.id;
+  db.get('SELECT * FROM vendas WHERE id = ?', [vendaId], (err, venda) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao obter venda'
+      });
+    }
+    if (!venda) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Venda não encontrada'
+      });
+    }
+    db.all('SELECT * FROM venda_itens WHERE venda_id = ?', [vendaId], (err2, itens) => {
+      if (err2) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao obter itens da venda'
+        });
+      }
+      res.json({
+        sucesso: true,
+        dados: { ...venda, itens }
+      });
+    });
+  });
+});
+
+// ============================================
+// 🔄 ROTAS PARA HISTÓRICO E STATUS DE AGENDAMENTO
+// ============================================
+// As rotas a seguir permitem consultar o histórico de alterações de
+// agendamentos e atualizar o status de um agendamento, registrando o
+// histórico.
+
+// Listar histórico de um agendamento
+app.get('/api/agendamentos/:id/historico', authMiddleware, (req, res) => {
+  db.all('SELECT * FROM historico_agendamentos WHERE agendamento_id = ? ORDER BY data_alteracao ASC', [req.params.id], (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao obter histórico'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Atualizar status do agendamento
+app.put('/api/agendamentos/:id/status', authMiddleware, (req, res) => {
+  const { novo_status } = req.body;
+  const statusValidos = ['agendado', 'confirmado', 'cancelado', 'concluido'];
+  if (!novo_status || !statusValidos.includes(novo_status)) {
+    return res.status(400).json({
+      sucesso: false,
+      erro: 'Status inválido'
+    });
+  }
+  // Buscar agendamento atual
+  db.get('SELECT status_agendamento FROM agendamentos WHERE id = ?', [req.params.id], (err, agendamento) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao buscar agendamento'
+      });
+    }
+    if (!agendamento) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Agendamento não encontrado'
+      });
+    }
+    const statusAnterior = agendamento.status_agendamento;
+    if (statusAnterior === novo_status) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: 'O agendamento já está com esse status'
+      });
+    }
+    db.run('UPDATE agendamentos SET status_agendamento = ? WHERE id = ?', [novo_status, req.params.id], function(updateErr) {
+      if (updateErr) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao atualizar status'
+        });
+      }
+      // Registrar histórico
+      db.run(
+        'INSERT INTO historico_agendamentos (agendamento_id, status_anterior, status_novo) VALUES (?, ?, ?)',
+        [req.params.id, statusAnterior, novo_status],
+        (histErr) => {
+          if (histErr) {
+            return res.status(500).json({
+              sucesso: false,
+              erro: 'Erro ao registrar histórico'
+            });
+          }
+          res.json({
+            sucesso: true,
+            mensagem: 'Status atualizado com sucesso'
+          });
+        }
+      );
+    });
+  });
+});
+
+// ============================================
+// 👥 ROTAS PARA LISTAGEM DE BARBEIROS E CLIENTES
+// ============================================
+// Fornecem consultas básicas para listar barbeiros e clientes. É
+// possível filtrar barbeiros por unidade e clientes por nome ou CPF.
+
+// Listar barbeiros
+app.get('/api/barbeiros', authMiddleware, (req, res) => {
+  const { unidade_id, ativo } = req.query;
+  let query = 'SELECT id, nome, cpf, telefone, email, unidade_id, percentual_comissao, foto_base64, ativo FROM barbeiros WHERE 1=1';
+  const params = [];
+  if (unidade_id) {
+    query += ' AND unidade_id = ?';
+    params.push(unidade_id);
+  }
+  if (ativo !== undefined) {
+    query += ' AND ativo = ?';
+    params.push(ativo === 'true' || ativo === '1' ? 1 : 0);
+  }
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar barbeiros'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter barbeiro por ID
+app.get('/api/barbeiros/:id', authMiddleware, (req, res) => {
+  db.get('SELECT * FROM barbeiros WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao obter barbeiro'
+      });
+    }
+    if (!row) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Barbeiro não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: row
+    });
+  });
+});
+
+// Listar clientes
+app.get('/api/clientes', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { nome, cpf, ativo } = req.query;
+  let query = 'SELECT id, nome, cpf, telefone, email, ativo, criado_em FROM clientes WHERE 1=1';
+  const params = [];
+  if (nome) {
+    query += ' AND nome LIKE ?';
+    params.push(`%${nome}%`);
+  }
+  if (cpf) {
+    query += ' AND cpf = ?';
+    params.push(limparCPF(cpf));
+  }
+  if (ativo !== undefined) {
+    query += ' AND ativo = ?';
+    params.push(ativo === 'true' || ativo === '1' ? 1 : 0);
+  }
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao listar clientes'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Obter cliente por ID
+app.get('/api/clientes/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.get('SELECT id, nome, cpf, telefone, email, ativo, criado_em FROM clientes WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao obter cliente'
+      });
+    }
+    if (!row) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Cliente não encontrado'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: row
+    });
+  });
+});
+
+// ============================================
+// 📊 ROTAS DE RELATÓRIOS
+// ============================================
+// Os relatórios fornecem visões agregadas sobre vendas, agendamentos e
+// comissões. Estes endpoints geram somatórios e agrupamentos para
+// facilitar a gestão financeira e operacional. Somente admins e
+// gerentes têm acesso aos relatórios.
+
+// Relatório de vendas por período
+app.get('/api/relatorios/vendas', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { data_inicio, data_fim } = req.query;
+  const params = [];
+  let query = `SELECT date(criado_em) as data, SUM(total) as total_vendas, COUNT(*) as quantidade_vendas
+               FROM vendas WHERE 1=1`;
+  if (data_inicio && data_fim) {
+    query += ' AND date(criado_em) BETWEEN date(?) AND date(?)';
+    params.push(data_inicio, data_fim);
+  }
+  query += ' GROUP BY date(criado_em) ORDER BY date(criado_em) ASC';
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao gerar relatório de vendas'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Relatório de agendamentos por status em período
+app.get('/api/relatorios/agendamentos', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { data_inicio, data_fim } = req.query;
+  const params = [];
+  let query = `SELECT status_agendamento, COUNT(*) as quantidade
+               FROM agendamentos WHERE 1=1`;
+  if (data_inicio && data_fim) {
+    query += ' AND date(data_agendamento) BETWEEN date(?) AND date(?)';
+    params.push(data_inicio, data_fim);
+  }
+  query += ' GROUP BY status_agendamento';
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao gerar relatório de agendamentos'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// Relatório de comissões por barbeiro
+app.get('/api/relatorios/comissoes', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  const { data_inicio, data_fim } = req.query;
+  const params = [];
+  let query = `SELECT b.id as barbeiro_id, b.nome as barbeiro_nome,
+               SUM(s.preco * (b.percentual_comissao / 100.0)) as total_comissao
+               FROM agendamentos a
+               JOIN barbeiros b ON a.barbeiro_id = b.id
+               JOIN servicos s ON a.servico_id = s.id
+               WHERE a.status_agendamento = 'concluido'`;
+  if (data_inicio && data_fim) {
+    query += ' AND date(a.data_agendamento) BETWEEN date(?) AND date(?)';
+    params.push(data_inicio, data_fim);
+  }
+  query += ' GROUP BY b.id, b.nome';
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: 'Erro ao gerar relatório de comissões'
+      });
+    }
+    res.json({
+      sucesso: true,
+      dados: rows
+    });
+  });
+});
+
+// ============================================
 // ⏲️ AGENDAMENTO DE TAREFAS AUTOMÁTICAS
 // ============================================
 
