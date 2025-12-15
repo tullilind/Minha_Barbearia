@@ -21,7 +21,7 @@ const app = express();
 const PORT = process.env.PORT || 40003;
 const JWT_SECRET = process.env.JWT_SECRET || '1526105';
 const DB_PATH = './barbearia.db';
-const WEBHOOK_API_URL = process.env.WEBHOOK_API_URL || 'http://localhost:3001';
+const WEBHOOK_API_URL = process.env.WEBHOOK_API_URL || 'https://apiszap.appguardiaomais.com.br';
 
 // ============================================
 // 🔧 CONFIGURAÇÕES
@@ -1736,3 +1736,4 @@ app.listen(PORT, () => {
   console.log('============================================\n');
 
 });
+
