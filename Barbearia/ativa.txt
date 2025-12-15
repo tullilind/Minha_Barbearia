@@ -1,0 +1,156 @@
+2️⃣ Atualizar o sistema (obrigatório)
+sudo apt update -y
+sudo apt upgrade -y
+sudo reboot
+
+
+Reconecte após o reboot.
+
+3️⃣ Instalar dependências básicas
+sudo apt install -y curl git build-essential
+
+
+Essas três evitam 80% dos erros depois.
+
+4️⃣ Instalar Node.js LTS (igual ao que funcionou)
+
+Usamos Node 20, confirmado funcionando no seu projeto.
+
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+
+Verificar:
+
+node -v
+npm -v
+
+
+Esperado:
+
+v20.x.x
+
+5️⃣ Instalar PM2 (gerenciador de produção)
+sudo npm install -g pm2
+
+
+Verificar:
+
+pm2 -v
+
+6️⃣ Criar estrutura do projeto (padrão que deu certo)
+mkdir -p ~/Downloads/Minha_Barbearia-main/Barbearia
+cd ~/Downloads/Minha_Barbearia-main/Barbearia
+
+
+Estrutura final correta:
+
+Barbearia/
+├── apis/
+│   └── api.js
+├── Interfaceusuarios/
+
+7️⃣ Entrar na pasta do backend
+cd apis
+
+
+Confirmar:
+
+ls
+
+
+Tem que aparecer:
+
+api.js
+
+8️⃣ Inicializar projeto Node (se não existir)
+npm init -y
+
+9️⃣ Instalar dependências (PASSO CRÍTICO)
+
+Esse foi o erro que causou o problema antes.
+Aqui está o comando exato que resolveu:
+
+npm install express bcrypt jsonwebtoken sqlite3 multer archiver cors dotenv axios node-cron form-data
+
+
+Isso cria:
+
+node_modules/
+package-lock.json
+
+🔟 Criar arquivo .env (exemplo funcional)
+nano .env
+
+
+Exemplo:
+
+PORT=40003
+JWT_SECRET=chave_super_secreta
+WEBHOOK_API_URL=https://apiszap.appguardiaomais.com.br
+
+
+Salvar.
+
+1️⃣1️⃣ Testar o sistema SEM PM2 (obrigatório)
+node api.js
+
+
+Resultado esperado (igual ao seu):
+
+🚀 Servidor rodando na porta 40003
+✅ Conectado ao banco SQLite
+✅ Tabelas verificadas/criadas com sucesso
+
+
+Parar com:
+
+CTRL + C
+
+1️⃣2️⃣ Subir em PRODUÇÃO com PM2
+pm2 start api.js --name barbearia-api
+pm2 save
+
+
+Verificar:
+
+pm2 list
+
+
+Esperado:
+
+barbearia-api   online
+
+1️⃣3️⃣ Ativar inicialização automática (essencial)
+pm2 startup systemd
+
+
+O PM2 vai mostrar um comando sudo ....
+👉 Copie e execute exatamente como aparecer.
+
+Depois:
+
+pm2 save
+
+1️⃣4️⃣ Teste final
+
+Na VPS:
+
+curl http://localhost:40003
+
+
+Se responder, está pronto.
+
+🧠 RESUMO HONESTO
+
+O que realmente importou para funcionar:
+
+Node 20 (LTS)
+
+npm install na pasta correta (apis)
+
+.env presente
+
+Testar com node api.js antes do PM2
+
+PM2 só depois que o Node rodar limpo
