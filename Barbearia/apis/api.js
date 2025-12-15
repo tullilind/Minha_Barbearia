@@ -18,8 +18,8 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'seu_segredo_aqui_mude_em_producao';
+const PORT = process.env.PORT || 40003;
+const JWT_SECRET = process.env.JWT_SECRET || '1526105';
 const DB_PATH = './barbearia.db';
 const WEBHOOK_API_URL = process.env.WEBHOOK_API_URL || 'http://localhost:3001';
 
@@ -1734,4 +1734,5 @@ app.listen(PORT, () => {
   console.log('⏱️ Lembretes 30min: A cada 10 minutos');
   console.log('🔐 Sistema de recuperação de senha: Ativo');
   console.log('============================================\n');
+
 });
