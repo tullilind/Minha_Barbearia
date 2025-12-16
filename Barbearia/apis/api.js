@@ -1,3 +1,5 @@
+
+
 // ============================================
 // 📦 DEPENDÊNCIAS
 // ============================================
@@ -46,6 +48,58 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
     console.log('✅ Conectado ao banco SQLite');
     initDatabase();
   }
+});
+
+// Inativar barbeiro (admin ou gerente)
+app.delete('/api/barbeiros/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.run(
+    'UPDATE barbeiros SET ativo = 0 WHERE id = ?',
+    [req.params.id],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao inativar barbeiro'
+        });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          erro: 'Barbeiro não encontrado'
+        });
+      }
+      res.json({
+        sucesso: true,
+        mensagem: 'Barbeiro inativado com sucesso'
+      });
+    }
+  );
+});
+
+// Inativar usuário (admin ou gerente)
+app.delete('/api/usuarios/:id', authMiddleware, checkPermission('admin', 'gerente'), (req, res) => {
+  db.run(
+    'UPDATE usuarios SET ativo = 0 WHERE id = ?',
+    [req.params.id],
+    function(err) {
+      if (err) {
+        return res.status(500).json({
+          sucesso: false,
+          erro: 'Erro ao inativar usuário'
+        });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({
+          sucesso: false,
+          erro: 'Usuário não encontrado'
+        });
+      }
+      res.json({
+        sucesso: true,
+        mensagem: 'Usuário inativado com sucesso'
+      });
+    }
+  );
 });
 
 // Inicializar banco com as tabelas
